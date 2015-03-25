@@ -1,5 +1,5 @@
 angular.module('fbMetricsModule', ['chartjs-directive'])
-    .controller('fbMetricsController', ['$scope', 'fbPageMetrics', function($scope, fbMetricsService) {
+    .controller('fbMetricsController', ['$scope','$q','fbPageMetrics', function($scope, $q, fbMetricsService) {
     var ctx = document.getElementById("championsChart").getContext("2d");
     /*
     var topCount = 5;
@@ -37,6 +37,7 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
         
 }]).controller("BarCtrl", ['$scope', 'fbPageMetrics', function ($scope, fbMetricsService) {
     var ctx = document.getElementById("championsChart").getContext("2d");
+    var minEngagers = 25;
     //Chart.defaults.global.responsive = true;
     
     $scope.topCount = 5;
@@ -51,23 +52,29 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
         datasets: [
             {
                 label: "Top Likers",
-                fillColor: "rgba(220,220,220,0.5)",
-                strokeColor: "rgba(220,220,220,0.8)",
-                highlightFill: "rgba(220,220,220,0.75)",
-                highlightStroke: "rgba(220,220,220,1)",
+                fillColor: "rgba(255, 189, 122,0.5)",
+                strokeColor: "rgba(255, 189, 122,0.8)",
+                highlightFill: "rgba(255, 189, 122,0.75)",
+                highlightStroke: "rgba(255, 189, 122,1)",
                 data: [0,0,0,0]
             }
         ]
     }
     window.championsChart = new Chart(ctx).Bar(data,{scaleShowGridLines:false});
     $scope.myChart = {"data": data, "options": {scaleShowGridLines:false} };
-    fbMetricsService.init().then(function(msg){ 
-            return fbMetricsService.getTopEngagers($scope.timeRange);
+    fbMetricsService.init().then(fbMetricsService.getManagedPages).then(function(pages){ 
+            $scope.accounts = pages
+            $scope.activeAccount = $scope.accounts[0].id;
+            return fbMetricsService.getTopEngagers($scope.activeAccount, $scope.timeRange);
         }).then(function(response){
-            
             $scope.topEngagers = response;
-            $scope.sortEngagers();
-            $scope.updateChart();        
+            if($scope.topEngagers.length > minEngagers) {
+                $scope.notEnoughData = false;
+                $scope.sortEngagers();
+                $scope.updateChart();  
+            } else {
+                $scope.notEnoughData = true;;
+            }       
         },function(reason) {
           alert('Failed: ' + reason);
         }, function(update) {
@@ -78,10 +85,16 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
         });
     
     $scope.getRecentTopEngagers = function(){
-        fbMetricsService.getTopEngagers($scope.timeRange).then(function(response){
+        fbMetricsService.getTopEngagers($scope.activeAccount, $scope.timeRange).then(function(response){
             $scope.topEngagers = response;
-            $scope.sortEngagers();
-            $scope.updateChart();        
+            if($scope.topEngagers.length > minEngagers) {
+                $scope.notEnoughData = false;
+                $scope.sortEngagers();
+                $scope.updateChart();  
+            } else {
+                $scope.notEnoughData = true;;
+            }
+                  
         },function(reason) {
           alert('Failed: ' + reason);
         }, function(update) {
@@ -118,10 +131,10 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
             datasets: [
                     {
                         label: "Top Likers",
-                        fillColor: "rgba(220,220,220,0.4)",
-                        strokeColor: "rgba(200,200,200,1)",
-                        highlightFill: "rgba(220,220,220,0.75)",
-                        highlightStroke: "rgba(220,220,220,1)",
+                        fillColor: "rgba(255, 189, 122,0.4)",
+                        strokeColor: "rgba(255, 189, 122,1)",
+                        highlightFill: "rgba(255, 189, 122,0.75)",
+                        highlightStroke: "rgba(255, 189, 122,1)",
                         data: topLikeCounts
                     }
                 ]
@@ -180,7 +193,6 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
 }])
     .service('fbPageMetrics', ['$http', '$q', '$rootScope', function ($http, $q, $rootScope) {
         var self = this;
-        var pageId = '232860220165189';
         this.init = function() {
             var deferred = $q.defer();
             window.fbAsyncInit = function() {
@@ -209,7 +221,25 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
            
            return deferred.promise
         }
-        this.getTopEngagers = function(daysBack){
+        this.getManagedPages = function() {
+            var deferred = $q.defer();
+            var pages = [];
+            function Page (id, name) {
+                this.id = id;
+                this.name = name;
+            }
+            
+            FB.api('/me/accounts',{'fields':'id,name'}, function(response){
+                var data = response.data;
+                for(i=0;i<data.length;i++) {
+                    pages.push(new Page(data[i].id, data[i].name));
+                }
+                deferred.resolve(pages);
+            });
+            return deferred.promise;
+        }
+        this.getTopEngagers = function(activePage, daysBack){
+            var pageId = activePage;
             var deferred = $q.defer();
             var batchCount = 0;
             var now = new Date();
@@ -244,6 +274,7 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
          }
          var translateLikesAndComments = function(response) {
             var data = response.data;
+            
             for(i=0;i<data.length;i++) {
                 total +=1;
                 created = new Date(data[i].created_time)
@@ -295,7 +326,7 @@ angular.module('fbMetricsModule', ['chartjs-directive'])
                     }
                 }
             }
-            if(!dateThreshold) {
+            if(!dateThreshold && response.hasOwnProperty("paging")) {
                 deferred.notify("Getting another page");
                 requestNextPage(response.paging.next).then(translateLikesAndComments);
             }

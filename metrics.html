@@ -58,25 +58,60 @@
         -webkit-transform: translate(-50%, 0);
         transform: translate(-50%, 0);
     }
+    #barCtrl {
+        width:800px;
+        margin:auto;
+        background-color:#eee;
+        height:100vh;
+    }
+    #options {
+        margin-bottom:70px;
+        padding-top:50px
+        margin-left:auto;
+        margin-right:auto;
+        width:90%;
+    }
+    html{
+        height:100vh;
+    }
+    
+    body {
+        height:100vh;
+        background-color:#FFBD7A;
+        margin:0px;
+        text-align:center;
+    }
+
     </style>
     <link rel="stylesheet" type="text/css" href="angular-chart.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script src="Chart.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.13/angular.min.js"></script>
     <script src="chartjs-directive.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.13/angular-animate.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.tpl.min.js"></script>
     <script src="metrics.js"></script>
     <script src="metrics-app.js"></script>
   </head>
   <body ng-app="metricsApp">
-  <div ng-controller="BarCtrl">
-    <select ng-model="topCount" ng-options="d.value as d.name for d in topCountOpts" ng-change="updateChart()"></select>
-    <select ng-model="engagementCategory" ng-options="item.value as item.name for item in categoryOpts" ng-change="sortEngagers();updateChart()"></select>
-    <select ng-model="timeRange" ng-options="item.value as item.name for item in timeOpts" ng-change="getRecentTopEngagers()"></select>
-    <div>
+  <div id="barCtrl" ng-controller="BarCtrl">
+    <h2>Brand Champions</h2>
+    <div id="options">
+    <span>Page: </span><button type="button" class="btn btn-default" data-placeholder="Select a page..." ng-model="activeAccount" ng-options="d.id as d.name for d in accounts" ng-change="getRecentTopEngagers()" bs-select></button>
+    </div>
+    <div id="options">
+    <span>Number to Display: </span><button type="button" class="btn btn-default"  ng-model="topCount" ng-options="d.value as d.name for d in topCountOpts" ng-change="updateChart()" bs-select></button>
+    <span>Engagement Type: </span><button type="button" class="btn btn-default" ng-model="engagementCategory" ng-options="item.value as item.name for item in categoryOpts" ng-change="sortEngagers();updateChart()" bs-select></button>
+    <span>Time Frame: </span><button type="button" class="btn btn-default" ng-model="timeRange" ng-options="item.value as item.name for item in timeOpts" ng-change="getRecentTopEngagers()" bs-select></button>
+    </div>
+    <div ng-hide="notEnoughData">
+    <canvas id="championsChart" width="700" height="500" style="display:block;margin:auto;"></canvas>
     <!--<chart value="myChart" type="Bar" width="600" height="400"></chart>-->
     <!--<canvas class="chart-bar" data="data" labels="labels" options="options" width="400" height="400"></canvas> -->
     </div>
-    <canvas id="championsChart" width="600" height="400"></canvas>
+    <div ng-show="notEnoughData">Not enough data.  Get out there and get more engagement!</div>
   </div>
   <div id="chartjs-tooltip"></div>
   </body>
